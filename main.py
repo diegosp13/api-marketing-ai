@@ -5,7 +5,6 @@ from PIL import Image, ImageEnhance
 import io
 import base64
 import requests
-import datetime
 import random
 
 app = FastAPI()
@@ -66,6 +65,7 @@ async def variar_imagem(file: UploadFile = File(...)):
             "prompt": "foto criativa e atrativa de comida para marketing",
             "steps": 20
         }
+        # 🔴 Substitua este endpoint por um válido da sua API do Stable Diffusion
         response = requests.post("https://api.exemplo-stable-diffusion.com/sdapi/v1/img2img", json=payload)
         return response.json()
     except Exception as e:
@@ -97,7 +97,3 @@ def upload_simulado(dados: TextoInput):
 @app.get("/agendamentos")
 def listar_agendamentos():
     return {"agendamentos": agendamentos}
-
-if __name__ == "__main__":
-    import uvicorn
-    uvicorn.run("main:app", host="0.0.0.0", port=80)
