@@ -1,16 +1,9 @@
-import logging
-import sys
-
-logging.basicConfig(
-    level=logging.INFO,
-    stream=sys.stdout,
-    format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
 import os
 import io
 import base64
 import random
+import logging
+import sys
 import requests
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -18,12 +11,22 @@ from pydantic import BaseModel
 from PIL import Image, ImageEnhance
 import replicate
 
+# Configuração do logger
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
+
+# Inicialização do aplicativo FastAPI
 app = FastAPI()
 
 # Configuração do CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["*"],  # Ajuste conforme necessário
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -63,8 +66,10 @@ async def melhorar_imagem(file: UploadFile = File(...)):
         buf = io.BytesIO()
         enhanced.save(buf, format="PNG")
         base64_image = base64.b64encode(buf.getvalue()).decode("utf-8")
+        logger.info("Imagem melhorada com sucesso.")
         return {"status": "ok", "imagem_base64": base64_image}
     except Exception as e:
+        logger.error(f"Erro ao melhorar imagem: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/gerar-descricao")
@@ -77,6 +82,7 @@ def gerar_descricao(dados: TextoInput):
     else:
         tags = ["#Essentia"]
     descricao = f"Descubra o sabor incrível do {dados.produto}! Ideal para quem ama {plataforma}. {' '.join(tags)}"
+    logger.info(f"Descrição gerada para {dados.produto} na plataforma {dados.plataforma}.")
     return {"descricao": descricao, "tags": tags}
 
 @app.post("/variar-imagem")
@@ -95,10 +101,13 @@ async def variar_imagem(file: UploadFile = File(...)):
         }
         response = requests.post(STABLE_DIFFUSION_URL, json=payload, headers=headers)
         response.raise_for_status()
+        logger.info("Variação de imagem gerada com sucesso.")
         return response.json()
     except requests.exceptions.RequestException as e:
+        logger.error(f"Erro na requisição para variar imagem: {e}")
         raise HTTPException(status_code=500, detail=f"Erro na requisição: {str(e)}")
     except Exception as e:
+        logger.error(f"Erro ao variar imagem: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/agendar-post")
@@ -108,16 +117,19 @@ def agendar_post(data: Agendamento):
         "plataforma": data.plataforma,
         "conteudo": data.conteudo
     })
+    logger.info(f"Post agendado para {data.plataforma} às {data.horario}.")
     return {"status": "agendado", "total_agendados": len(agendamentos)}
 
 @app.get("/melhor-horario")
 def melhor_horario():
     horarios = ["11:00", "13:00", "18:00", "20:00"]
     escolhido = random.choice(horarios)
+    logger.info(f"Melhor horário sugerido: {escolhido}")
     return {"melhor_horario": escolhido}
 
 @app.post("/upload-simulado")
 def upload_simulado(dados: TextoInput):
+    logger.info(f"Upload simulado para {dados.plataforma} com o produto {dados.produto}.")
     return {
         "status": "enviado",
         "plataforma": dados.plataforma,
@@ -126,10 +138,12 @@ def upload_simulado(dados: TextoInput):
 
 @app.get("/agendamentos")
 def listar_agendamentos():
+    logger.info("Listando agendamentos.")
     return {"agendamentos": agendamentos}
 
 # Inicialização do servidor
 if __name__ == "__main__":
     import uvicorn
     port = int(os.environ.get("PORT", 8000))
+    logger.info(f"Iniciando servidor na porta {port}.")
     uvicorn.run("main:app", host="0.0.0.0", port=port)
