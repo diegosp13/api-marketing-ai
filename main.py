@@ -1,3 +1,12 @@
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,
+    stream=sys.stdout,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+
 import os
 import io
 import base64
