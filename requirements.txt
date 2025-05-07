@@ -6,3 +6,6 @@ python-dotenv
 sqlalchemy
 tweepy
 apscheduler
+replicate
+python-multipart
+pillow
