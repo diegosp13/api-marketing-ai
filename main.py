@@ -1,20 +1,22 @@
+import os
+import replicate
+import requests
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image, ImageEnhance
 import io
 import base64
-import requests
 import random
 
 app = FastAPI()
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Configuração do Replicate
+replicate_api_token = os.getenv("REPLICATE_API_TOKEN")
+replicate_client = replicate.Client(api_token=replicate_api_token)
+
+# Configuração do Stable Diffusion
+stable_diffusion_api_key = os.getenv("STABLE_DIFFUSION_API_KEY")
+stable_diffusion_url = "https://api.stability.ai/v1/generate"  # Substitua com o URL correto da API
 
 tags_instagram = ["#instafood", "#foodie", "#delicious", "#homemade", "#comidaboa"]
 tags_tiktok = ["#foodtok", "#receita", "#dicas", "#culinaria", "#viral"]
@@ -65,8 +67,11 @@ async def variar_imagem(file: UploadFile = File(...)):
             "prompt": "foto criativa e atrativa de comida para marketing",
             "steps": 20
         }
-        # 🔴 Substitua este endpoint por um válido da sua API do Stable Diffusion
-        response = requests.post("https://api.exemplo-stable-diffusion.com/sdapi/v1/img2img", json=payload)
+        headers = {
+            "Authorization": f"Bearer {stable_diffusion_api_key}",
+            "Content-Type": "application/json"
+        }
+        response = requests.post(stable_diffusion_url, json=payload, headers=headers)
         return response.json()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
