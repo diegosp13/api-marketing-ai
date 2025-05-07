@@ -1,26 +1,37 @@
 import os
-import replicate
-import requests
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from pydantic import BaseModel
-from PIL import Image, ImageEnhance
 import io
 import base64
 import random
+import requests
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from PIL import Image, ImageEnhance
+import replicate
 
 app = FastAPI()
 
-# Configuração do Replicate
-replicate_api_token = os.getenv("REPLICATE_API_TOKEN")
-replicate_client = replicate.Client(api_token=replicate_api_token)
+# Configuração do CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Configuração do Stable Diffusion
-stable_diffusion_api_key = os.getenv("STABLE_DIFFUSION_API_KEY")
-stable_diffusion_url = "https://api.stability.ai/v1/generate"  # Substitua com o URL correto da API
+# Configuração das variáveis de ambiente
+REPLICATE_API_TOKEN = os.getenv("REPLICATE_API_TOKEN")
+STABLE_DIFFUSION_API_KEY = os.getenv("STABLE_DIFFUSION_API_KEY")
+STABLE_DIFFUSION_URL = "https://api.stability.ai/v1/generate"  # Substitua pelo URL correto da API
 
+# Inicialização do cliente Replicate
+replicate_client = replicate.Client(api_token=REPLICATE_API_TOKEN)
+
+# Tags para as plataformas
 tags_instagram = ["#instafood", "#foodie", "#delicious", "#homemade", "#comidaboa"]
 tags_tiktok = ["#foodtok", "#receita", "#dicas", "#culinaria", "#viral"]
 
+# Modelos de dados
 class TextoInput(BaseModel):
     produto: str
     plataforma: str
@@ -30,6 +41,7 @@ class Agendamento(BaseModel):
     plataforma: str
     conteudo: str
 
+# Lista para armazenar agendamentos
 agendamentos = []
 
 @app.post("/melhorar-imagem")
@@ -48,13 +60,14 @@ async def melhorar_imagem(file: UploadFile = File(...)):
 
 @app.post("/gerar-descricao")
 def gerar_descricao(dados: TextoInput):
-    if dados.plataforma.lower() == "instagram":
+    plataforma = dados.plataforma.lower()
+    if plataforma == "instagram":
         tags = tags_instagram
-    elif dados.plataforma.lower() == "tiktok":
+    elif plataforma == "tiktok":
         tags = tags_tiktok
     else:
         tags = ["#Essentia"]
-    descricao = f"Descubra o sabor incrível do {dados.produto}! Ideal para quem ama {dados.plataforma}. {' '.join(tags)}"
+    descricao = f"Descubra o sabor incrível do {dados.produto}! Ideal para quem ama {plataforma}. {' '.join(tags)}"
     return {"descricao": descricao, "tags": tags}
 
 @app.post("/variar-imagem")
@@ -68,11 +81,14 @@ async def variar_imagem(file: UploadFile = File(...)):
             "steps": 20
         }
         headers = {
-            "Authorization": f"Bearer {stable_diffusion_api_key}",
+            "Authorization": f"Bearer {STABLE_DIFFUSION_API_KEY}",
             "Content-Type": "application/json"
         }
-        response = requests.post(stable_diffusion_url, json=payload, headers=headers)
+        response = requests.post(STABLE_DIFFUSION_URL, json=payload, headers=headers)
+        response.raise_for_status()
         return response.json()
+    except requests.exceptions.RequestException as e:
+        raise HTTPException(status_code=500, detail=f"Erro na requisição: {str(e)}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -102,3 +118,9 @@ def upload_simulado(dados: TextoInput):
 @app.get("/agendamentos")
 def listar_agendamentos():
     return {"agendamentos": agendamentos}
+
+# Inicialização do servidor
+if __name__ == "__main__":
+    import uvicorn
+    port = int(os.environ.get("PORT", 8000))
+    uvicorn.run("main:app", host="0.0.0.0", port=port)
